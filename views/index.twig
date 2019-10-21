@@ -1,0 +1,93 @@
+{% extends 'layout.twig' %}
+
+{% block body %}
+  <style>
+    html, body, .map {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .popover{
+      font-size: 0.7em;
+      width: 500px;
+    }
+  </style>
+  <div id="map" class="map">
+    <div id="popup"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.0.1/build/ol.js"></script>
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="javascripts/util.js"></script>
+  <script type="text/javascript">
+    var key = 'pk.eyJ1IjoiZG1hY2tnbCIsImEiOiJjazF6ZzFzNHIweHEyM2RvMGF5bjM1OG5oIn0.FaS06j69d3ub-QSPS4CKug';
+    var data = new ol.source.Vector({
+      url: '/api/bomberos/132',
+      projection: 'EPSG:3857',
+      format: new ol.format.GeoJSON()
+    });
+    var vectorLayer = new ol.layer.Vector({
+      source: data,
+      style: llamadoStyle
+    });
+    var map = new ol.Map({
+      target: 'map',
+      layers: [
+        new ol.layer.Tile({
+          source: new ol.source.OSM()
+        }),
+        vectorLayer
+      ],
+      view: new ol.View({
+        center: [-33.4368837,-70.6343856],
+        zoom: 4
+      })
+    });
+    element = document.getElementById('popup');
+
+    var popup = new ol.Overlay({
+      element: element,
+      positioning: 'bottom-center',
+      stopEvent: false
+    });
+    map.addOverlay(popup);
+    // display popup on click
+    map.on('click', function(evt) {
+      var feature = map.forEachFeatureAtPixel(evt.pixel,
+              function(feature, layer) {
+                return feature;
+              });
+      if (feature) {
+        if($('.popover').hasClass('in'))
+          $(element).popover('destroy');
+        var geometry = feature.getGeometry();
+        var coord = geometry.getCoordinates();
+        popup.setPosition(coord);
+        $(element).popover({
+          'placement': 'top',
+          'html': true,
+          'title': feature.get('clave')+' en '+feature.get('comuna'),
+          'content': 'Hace '+hace(feature.get('fecha'))+'<br/>'+feature.get('ubicacion')+'<br/>'+feature.get('carros'),
+        });
+        $(element).popover('show');
+      } else {
+        $(element).popover('dispose');
+      }
+    });
+    data.on('change', function(evt) {
+      map.getView().fit(vectorLayer.getSource().getExtent(), map.getSize());
+    });
+    // change mouse cursor when over marker
+    $(map.getViewport()).on('mousemove', function(e) {
+      var pixel = map.getEventPixel(e.originalEvent);
+      var hit = map.forEachFeatureAtPixel(pixel, function(feature, layer) {
+        return true;
+      });
+      if (hit) {
+        $('#map').css('cursor','pointer');
+      } else {
+        $('#map').css('cursor','');
+      }
+    });
+  </script>
+{% endblock %}
